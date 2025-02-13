@@ -7,36 +7,20 @@ const jwt = require("jsonwebtoken");
 
 const getData = async (req, res) => {
     try {
-        const q = `SELECT * FROM user_registration`;
+        const userIds = await decodeToken?.fetchId(req?.headers["authorization"]);
+        let q;
+        if (userIds) {
+            q = `SELECT user_id, user_first_name, user_last_name, user_email, user_role, entry_date FROM user_registration WHERE user_id = ${userIds}`;
+        } else {
+            q = `SELECT * FROM user_registration`;
+        }
         const userData = await queryExcuter(q)
         if (userData) {
             return await res?.status(200)?.json({
                 status: 200,
                 message: "Get all user data",
                 error_type: "Success",
-                data: userData,
-            });
-        }
-    } catch (error) {
-        return await res?.status(400)?.json({
-            status: 400,
-            message: "Error Occured",
-            error_type: "Error",
-            data: error?.message,
-        });
-    }
-}
-
-const getDataById = async (req, res) => {
-    try {
-        const q = `SELECT * FROM user_registration WHERE user_id = ${req?.params?.id}`;
-        const userData = await queryExcuter(q)
-        if (userData) {
-            return await res?.status(200)?.json({
-                status: 200,
-                message: "Get specific user data",
-                error_type: "Success",
-                data: userData?.[0],
+                data: userIds ? userData?.[0] : userData,
             });
         }
     } catch (error) {
@@ -53,8 +37,8 @@ const userRegistration = async (req, res) => {
     try {
         const checkEmailQ = `SELECT user_email FROM user_registration WHERE user_email = '${req?.body?.user_email}'`
         const existintEmail = await queryExcuter(checkEmailQ)
-        if (existintEmail) {
-            return await res?.status(200)?.json({
+        if (existintEmail?.length > 0) {
+            return await res?.status(409)?.json({
                 status: 409,
                 message: "This email id is already exist",
                 error_type: "Conflict",
@@ -62,25 +46,23 @@ const userRegistration = async (req, res) => {
             });
         }
 
-        const q = `INSERT INTO user_registration(user_first_name, user_last_name, user_email, user_password, user_role, status, entry_date, entry_by, entry_role) VALUES (?)`
+        const q = `INSERT INTO user_registration(user_first_name, user_last_name, user_email, user_password, user_role, entry_date) VALUES (?)`
         const values = [
             req?.body?.user_first_name,
             req?.body?.user_last_name,
             req?.body?.user_email,
             req?.body?.user_password,
             req?.body?.user_role,
-            req?.body?.status || 1,
             new Date(),
-            decodeToken?.fetchId(req?.headers["authorization"]) || 1,
-            decodeToken?.fetchRole(req?.headers["authorization"]) || 1,
         ]
         const newData = queryExcuter(q, [values])
         if (newData) {
             return await res?.status(201)?.json({
                 status: 201,
-                message: "User has been added successfully...",
+                message: req?.body?.user_role == 1 ?
+                    "Admin registration has been successfully..." : "Customer registration has been successfully...",
                 error_type: "Success",
-                data: data,
+                data: newData,
             });
         }
     } catch (error) {
@@ -100,16 +82,15 @@ const userLogin = async (req, res) => {
         if (getEmail?.length !== 0) {
             const { user_id, user_role, user_email, user_password } = getEmail?.[0]
             if (user_password != req?.body?.password) {
-                return await res?.status(404)?.json({
-                    status: 404,
+                return await res?.status(401)?.json({
+                    status: 401,
                     message: "Invalid Password",
                     error_type: "Error",
                     data: {},
                 });
-
             } else if (user_role != 1) {
-                return await res?.status(404)?.json({
-                    status: 400,
+                return await res?.status(401)?.json({
+                    status: 401,
                     message: "You are not allowed to login from here",
                     error_type: "Error",
                     data: {},
@@ -124,8 +105,8 @@ const userLogin = async (req, res) => {
                 });
             }
         } else {
-            return await res?.status(404)?.json({
-                status: 404,
+            return await res?.status(401)?.json({
+                status: 401,
                 message: "Invalid Email Address",
                 error_type: "Error",
                 data: {},
@@ -142,4 +123,4 @@ const userLogin = async (req, res) => {
 }
 
 
-module.exports = { getData, getDataById, userRegistration, userLogin }
+module.exports = { getData, userRegistration, userLogin }

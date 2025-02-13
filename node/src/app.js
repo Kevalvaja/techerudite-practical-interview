@@ -8,7 +8,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.use('/api/userLogin', require('./routers/publicRouter/user-login-router'));
+app.use('/public/api/users', require('./routers/publicRouter/user-login-router'));
 
 app.use('/', verifyToken, privateRouter);
 
